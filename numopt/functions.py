@@ -49,6 +49,9 @@ if __name__ == '__main__':
 	def parabola(x):
 		return x ** 2  # derivative is 2x
 
+	def normPDF(x, mu, sigma):
+		return (1 / (sigma * np.sqrt(2*np.pi))) * np.exp(-0.5 * (((x - mu) / sigma)**2))
+
 	x0 = np.array([1, 4, 5, 3])
 
 	my_para = ScalarFunction(parabola, function_bounds=[-np.inf, np.inf])
