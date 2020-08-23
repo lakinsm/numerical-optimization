@@ -402,42 +402,48 @@ class UnconstrainedOptimizer:
 		self.max_iters = max_iteration
 		self.tol = tolerance
 
-	def fit(self, x0):
+	def fit(self, x0, return_all_values=False):
 		"""
 		Find the optimum value for the objective function given a starting guess x0.
 		Uses BFGS algorithm and line search with strong Wolfe conditions.
 		:param x0: double array or scalar, initial point
+		:param return_all_values: bool, if true, returns an array of x values at each iteration
 		:return: double array or scalar, input point that optimizes the objective function
 		"""
 		# Ensure x0 is an array
 		x0 = np.atleast_1d(x0)
 
 		# Initial values
-		gnorm = np.inf  # the 2-norm of the gradient is our measure of gradient delta
 		old_fval = self.f(x0)  # initial value of the function at the initial guess
 		gfk = self.g(x0)  # initial gradient of the function at the initial guess
 		k = 0  # the current iteration
 		N = len(x0)  # the number of dimensions in x0
 		I = np.eye(N, dtype=np.float64)  # identity matrix of dimension NxN
+		# Hk = np.dot(np.array((2 * (np.diag(gfk) > 0) - 1)), I)
 		Hk = I  # Initial guess at point k for the Hessian matrix (we just use the identity here as a starting point)
 		old_old_fval = old_fval + (np.linalg.norm(gfk) / 2)  # Initial step guess (to initialize new value line search)
-		xk = x0  # xk will be the variable in which we store the current x values at iteration k
+		if return_all_values:
+			all_x_values = [(x0, old_fval)]
+		else:
+			all_x_values = None
 
-		print("Begin .fit()")
+		gnorm = np.linalg.norm(gfk)
+		xk = x0  # xk will be the variable in which we store the current x values at iteration k
 		while (k < self.max_iters) & (gnorm > self.tol):
-			print("Fit Iteration: {}".format(k + 1))
 			pk = -np.dot(Hk, gfk)
 
-			print("Pre LineSearch: xk: {}\tHk: {}\tgfk: {}\tpk: {}".format(xk, Hk, gfk, pk))
 			# alpha_star, fc[0], gc[0], phi_star, old_fval, derphi_star
 			alpha_k, fc, gc, old_fval, old_old_fval, gfkp1 = \
 				lineSearchWolfe(self.f, self.g, xk, pk, gfk, old_fval, old_old_fval)
 			if alpha_k is None:
 				alpha_k = 1.0
 				gfkp1 = None
+
 			xkp1 = xk + (alpha_k * pk)
 			sk = xkp1 - xk
 			xk = xkp1
+			if return_all_values:
+				all_x_values.append((xk, old_fval))
 			if gfkp1 is None:
 				gfkp1 = self.g(xkp1)
 
@@ -458,8 +464,7 @@ class UnconstrainedOptimizer:
 			k += 1
 
 		fval = self.f(xk)
-		print("End .fit()")
-		return xk, fval
+		return xk, fval, all_x_values
 
 	def _wrapFunction(self, fun):
 		"""
@@ -468,7 +473,7 @@ class UnconstrainedOptimizer:
 		:return: The callable function with the parameters implied, if there are any parameters
 		"""
 		assert (callable(fun))
-		if self.params:
+		if self.params is not None:
 			params = self.params
 
 			def newFunction(x):

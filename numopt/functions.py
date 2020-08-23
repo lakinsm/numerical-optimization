@@ -32,13 +32,19 @@ class ScalarFunction:
 		return self.fun_value
 
 	def grad(self, x0, *args):
-		local_x0 = np.array(x0)
+		local_x0 = np.atleast_1d(x0)
 		fx0 = self.function(x0, *args)
 		x_eps = self._adjustEpsToBounds(local_x0)
 		x1 = x0 + x_eps
-		fx1 = self.function(x1, *args)
-		# The approximate derivative is the rise over run
-		return (fx1 - fx0) / x_eps
+		gradient = np.array([0. for _ in range(len(x0))], dtype=np.float64)
+		# The approximate derivative is the rise over run, perturbing one dimension at a time
+		for i in range(len(x1)):
+			x1i = local_x0.copy()
+			x1i[i] = x1[i]
+			fxi = self.function(x1i, *args)
+			gradient[i] = fxi - fx0
+		gradient /= x_eps
+		return gradient
 
 	def hes(self):
 		return None
