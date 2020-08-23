@@ -16,7 +16,7 @@ def normNegLogLikelihood(params, data):
 	mu = params[0]
 	sigma = params[1]
 	N = len(data)
-	log_likelihood = # Fill this in yourself
+	log_likelihood = -((N/2) * np.log(2 * np.pi)) - ((N/2) * np.log(sigma**2)) - ((1 / (2 * sigma**2)) * np.sum((data - mu)**2))
 	return -log_likelihood
 
 
