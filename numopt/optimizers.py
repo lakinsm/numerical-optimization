@@ -304,39 +304,39 @@ def _zoom(a_lo, a_hi, phi_lo, phi_hi, derphi_lo, phi, derphi, phi0, derphi0, c1,
 			if (a_j is None) or (a_j > b - qchk) or (a_j < a + qchk):
 				a_j = a_lo + 0.5 * dalpha
 
-			# Check new value of a_j
+		# Check new value of a_j
 
-			phi_aj = phi(a_j)
-			if (phi_aj > phi0 + c1 * a_j * derphi0) or (phi_aj >= phi_lo):
+		phi_aj = phi(a_j)
+		if (phi_aj > phi0 + c1 * a_j * derphi0) or (phi_aj >= phi_lo):
+			phi_rec = phi_hi
+			a_rec = a_hi
+			a_hi = a_j
+			phi_hi = phi_aj
+		else:
+			derphi_aj = derphi(a_j)
+			if abs(derphi_aj) <= -c2 * derphi0 and extra_condition(a_j, phi_aj):
+				a_star = a_j
+				val_star = phi_aj
+				valprime_star = derphi_aj
+				break
+			if derphi_aj * (a_hi - a_lo) >= 0:
 				phi_rec = phi_hi
 				a_rec = a_hi
-				a_hi = a_j
-				phi_hi = phi_aj
+				a_hi = a_lo
+				phi_hi = phi_lo
 			else:
-				derphi_aj = derphi(a_j)
-				if abs(derphi_aj) <= -c2 * derphi0 and extra_condition(a_j, phi_aj):
-					a_star = a_j
-					val_star = phi_aj
-					valprime_star = derphi_aj
-					break
-				if derphi_aj * (a_hi - a_lo) >= 0:
-					phi_rec = phi_hi
-					a_rec = a_hi
-					a_hi = a_lo
-					phi_hi = phi_lo
-				else:
-					phi_rec = phi_lo
-					a_rec = a_lo
-				a_lo = a_j
-				phi_lo = phi_aj
-				derphi_lo = derphi_aj
-			i += 1
-			if i > max_iter:
-				# Failed to find a conforming step size
-				a_star = None
-				val_star = None
-				valprime_star = None
-				break
+				phi_rec = phi_lo
+				a_rec = a_lo
+			a_lo = a_j
+			phi_lo = phi_aj
+			derphi_lo = derphi_aj
+		i += 1
+		if i > max_iter:
+			# Failed to find a conforming step size
+			a_star = None
+			val_star = None
+			valprime_star = None
+			break
 
 	return a_star, val_star, valprime_star
 
@@ -404,7 +404,8 @@ class UnconstrainedOptimizer:
 
 	def fit(self, x0):
 		"""
-		Find the optimum value for the objective function given a starting guess x0
+		Find the optimum value for the objective function given a starting guess x0.
+		Uses BFGS algorithm and line search with strong Wolfe conditions.
 		:param x0: double array or scalar, initial point
 		:return: double array or scalar, input point that optimizes the objective function
 		"""
@@ -431,11 +432,14 @@ class UnconstrainedOptimizer:
 			# alpha_star, fc[0], gc[0], phi_star, old_fval, derphi_star
 			alpha_k, fc, gc, old_fval, old_old_fval, gfkp1 = \
 				lineSearchWolfe(self.f, self.g, xk, pk, gfk, old_fval, old_old_fval)
+			if alpha_k is None:
+				alpha_k = 1.0
+				gfkp1 = None
 			xkp1 = xk + (alpha_k * pk)
 			sk = xkp1 - xk
 			xk = xkp1
 			if gfkp1 is None:
-				gfkp1 = g(xkp1)
+				gfkp1 = self.g(xkp1)
 
 			yk = gfkp1 - gfk
 			gfk = gfkp1
@@ -453,7 +457,7 @@ class UnconstrainedOptimizer:
 			Hk = np.dot(A1, np.dot(Hk, A2)) + (rhok * sk[:, np.newaxis] * sk[np.newaxis, :])
 			k += 1
 
-		fval = old_fval
+		fval = self.f(xk)
 		print("End .fit()")
 		return xk, fval
 
@@ -479,8 +483,15 @@ if __name__ == '__main__':
 	def parabola(x):
 		return x ** 2
 
-
 	sf = ScalarFunction(parabola)
 	opt = UnconstrainedOptimizer(sf, None, max_iteration=50)
 	res = opt.fit(4)
-	print(res)
+	print(res)  # Should return approximately (0, 0)
+
+	def paraboloid(x):
+		return ((x[0] / 3)**2) + (x[1]**2)
+
+	sf2 = ScalarFunction(paraboloid)
+	opt2 = UnconstrainedOptimizer(sf2, None, max_iteration=50)
+	res2 = opt2.fit([1, 1])
+	print(res2)
